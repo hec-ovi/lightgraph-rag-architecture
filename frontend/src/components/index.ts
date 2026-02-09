@@ -1,5 +1,4 @@
 export { Layout } from "./Layout";
 export { Header } from "./Header";
-export { Sidebar } from "./Sidebar";
 export * from "./ui";
 export * from "./features";
