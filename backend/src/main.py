@@ -6,6 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from src.core.database import init_database
 from src.services import lightrag_service
+from src.routes.documents import router as documents_router
 from src.routes.groups import router as groups_router
 from src.routes.health import router as health_router
 
@@ -34,3 +35,4 @@ app.add_middleware(
 
 app.include_router(health_router)
 app.include_router(groups_router)
+app.include_router(documents_router)
