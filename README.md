@@ -13,7 +13,7 @@ A fully local, Dockerized knowledge graph RAG system powered by [LightRAG](https
 - **SSE Streaming** — Real-time streaming for both queries and conversations
 - **Fully Local** — All AI inference via Ollama with ROCm GPU acceleration (AMD Strix Halo)
 - **OpenAPI Documented** — 18 endpoints auto-documented at `/docs`
-- **File Upload** — Ingest .txt, .md, .csv, .json, .xml, .html, .py, .js, .ts, .yaml, .yml, .log files
+- **File Upload** — Ingest .txt, .md, .csv, .json, .xml, .html, .py, .js, .ts, .yaml, .yml, .log, and .pdf files via modular extractor registry
 
 ## Architecture
 
@@ -56,6 +56,7 @@ A fully local, Dockerized knowledge graph RAG system powered by [LightRAG](https
 | Package Manager | uv | Rust-based |
 | Containerization | Docker Compose | Multi-stage builds |
 | Streaming | SSE (sse-starlette) | Server-Sent Events |
+| PDF Extraction | PyMuPDF | 1.26.x |
 
 ## API Overview
 
@@ -84,13 +85,16 @@ A fully local, Dockerized knowledge graph RAG system powered by [LightRAG](https
 │       ├── routes/                 # HTTP handlers (health, groups, documents, query, conversations)
 │       ├── services/               # Business logic (group, document, query, conversation, lightrag)
 │       ├── models/                 # Pydantic DTOs (group, document, query, conversation)
-│       ├── tools/                  # Isolated tools (text_extractor)
+│       ├── tools/                  # Isolated tools (text_extractor with PDF support)
 │       ├── prompts/                # AI prompts as .md files
 │       ├── core/                   # Config, database, exceptions
 │       └── lib/                    # Utilities
 ├── ollama/                         # Ollama ROCm inference service
 │   ├── Dockerfile                  # ollama/ollama:rocm + auto model download
 │   └── entrypoint.sh              # Starts server, pulls gpt-oss:20b + bge-m3
+├── data/                           # Sample test data for RAG ingestion
+│   └── samples/
+│       └── pydantic_ai_docs.txt   # Pydantic AI documentation (~10KB)
 └── frontend/                       # React frontend (future updates)
     └── ...
 ```
@@ -149,6 +153,14 @@ curl -X POST http://localhost:8000/groups/GROUP_ID/query \
 curl -X POST http://localhost:8000/groups/GROUP_ID/conversations \
   -H 'Content-Type: application/json' \
   -d '{"title":"Research chat"}'
+
+# Upload a PDF file (replace GROUP_ID)
+curl -X POST http://localhost:8000/groups/GROUP_ID/documents/upload \
+  -F "file=@document.pdf"
+
+# Upload the included sample data
+curl -X POST http://localhost:8000/groups/GROUP_ID/documents/upload \
+  -F "file=@data/samples/pydantic_ai_docs.txt"
 
 # Chat (replace CONV_ID)
 curl -X POST http://localhost:8000/groups/GROUP_ID/conversations/CONV_ID/chat \

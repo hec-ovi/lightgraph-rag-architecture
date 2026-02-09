@@ -142,7 +142,7 @@ Errors: `404` group not found, `503` LightRAG not ready.
 
 #### POST /groups/{group_id}/documents/upload
 
-Upload a text file via multipart form data.
+Upload a file via multipart form data. Text files are decoded directly; PDF files are extracted via PyMuPDF.
 
 Request: `multipart/form-data` with field `file`.
 
@@ -151,7 +151,7 @@ curl -X POST http://localhost:8000/groups/GROUP_ID/documents/upload \
   -F "file=@document.txt"
 ```
 
-Supported file types: `.txt`, `.md`, `.csv`, `.json`, `.xml`, `.html`, `.py`, `.js`, `.ts`, `.yaml`, `.yml`, `.log`
+Supported file types: `.txt`, `.md`, `.csv`, `.json`, `.xml`, `.html`, `.py`, `.js`, `.ts`, `.yaml`, `.yml`, `.log`, `.pdf`
 
 Response `201`: Same as text insert.
 Errors: `400` unsupported file type, `404` group not found, `503` LightRAG not ready.
