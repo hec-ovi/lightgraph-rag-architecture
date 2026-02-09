@@ -9,6 +9,7 @@ from src.services import lightrag_service
 from src.routes.documents import router as documents_router
 from src.routes.groups import router as groups_router
 from src.routes.health import router as health_router
+from src.routes.query import router as query_router
 
 
 @asynccontextmanager
@@ -36,3 +37,4 @@ app.add_middleware(
 app.include_router(health_router)
 app.include_router(groups_router)
 app.include_router(documents_router)
+app.include_router(query_router)
