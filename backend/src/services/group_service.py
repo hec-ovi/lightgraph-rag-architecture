@@ -5,6 +5,7 @@ from src.core.config import settings
 from src.core.database import get_connection
 from src.core.exceptions import GroupAlreadyExistsError, GroupNotFoundError
 from src.models.group import GroupCreate, GroupListResponse, GroupResponse, GroupUpdate
+from src.services import lightrag_service
 
 
 async def create_group(data: GroupCreate) -> GroupResponse:
@@ -176,6 +177,8 @@ async def delete_group(group_id: str) -> None:
 
         await db.execute("DELETE FROM groups WHERE id = ?", (group_id,))
         await db.commit()
+
+        await lightrag_service.remove_instance(group_id)
 
         import shutil
         group_dir = Path(settings.data_dir) / "groups" / group_id

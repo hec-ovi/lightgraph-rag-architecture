@@ -5,6 +5,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from src.core.database import init_database
+from src.services import lightrag_service
 from src.routes.groups import router as groups_router
 from src.routes.health import router as health_router
 
@@ -13,6 +14,7 @@ from src.routes.health import router as health_router
 async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
     await init_database()
     yield
+    await lightrag_service.shutdown_all()
 
 
 app = FastAPI(

@@ -9,6 +9,7 @@ dependencies = [
     "lightrag-hku",
     "sse-starlette",
     "python-multipart",
+    "ollama>=0.6.1",
 ]
 
 [tool.ruff]
