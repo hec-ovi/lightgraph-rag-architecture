@@ -1,6 +1,7 @@
 import json
 
 from fastapi import APIRouter, HTTPException
+from fastapi.responses import Response
 from sse_starlette.sse import EventSourceResponse
 
 from src.core.exceptions import ConversationNotFoundError, GroupNotFoundError, LightRAGNotReadyError
@@ -51,11 +52,7 @@ async def chat(group_id: str, conversation_id: str, data: ChatRequest) -> ChatRe
     """Send a message in a conversation and get a RAG-powered response.
 
     The conversation history is passed to LightRAG for context-aware answers.
-    Set `stream: true` for Server-Sent Events streaming.
     """
-    if data.stream:
-        return _stream_chat(group_id, conversation_id, data)
-
     try:
         return await conversation_service.chat(group_id, conversation_id, data.message, data.mode)
     except GroupNotFoundError as e:
@@ -66,7 +63,17 @@ async def chat(group_id: str, conversation_id: str, data: ChatRequest) -> ChatRe
         raise HTTPException(status_code=503, detail=str(e))
 
 
-def _stream_chat(group_id: str, conversation_id: str, data: ChatRequest) -> EventSourceResponse:
+@router.post("/{conversation_id}/chat/stream", response_class=Response)
+async def chat_stream(group_id: str, conversation_id: str, data: ChatRequest) -> EventSourceResponse:
+    """Stream a chat response via Server-Sent Events.
+
+    SSE event format:
+    - `event: chunk` / `data: <text>` — response text chunk
+    - `event: done` / `data: {"group_id", "conversation_id", "mode"}` — stream complete
+    - `event: error` / `data: {"detail": "..."}` — error occurred
+
+    The user message is saved immediately. The assistant response is saved after streaming completes.
+    """
     async def event_generator():
         try:
             async for chunk in conversation_service.chat_stream(

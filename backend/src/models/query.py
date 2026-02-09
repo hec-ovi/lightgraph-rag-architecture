@@ -10,7 +10,6 @@ class QueryRequest(BaseModel):
 
     query: Annotated[str, Field(min_length=1, description="The search query")]
     mode: Annotated[QueryMode, Field(default="mix", description="RAG query mode")]
-    stream: Annotated[bool, Field(default=False, description="Enable SSE streaming response")]
 
 
 class QueryResponse(BaseModel):

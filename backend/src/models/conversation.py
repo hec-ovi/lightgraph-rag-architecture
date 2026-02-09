@@ -45,7 +45,6 @@ class ChatRequest(BaseModel):
 
     message: Annotated[str, Field(min_length=1, description="User message")]
     mode: Annotated[QueryMode, Field(default="mix", description="RAG query mode")]
-    stream: Annotated[bool, Field(default=False, description="Enable SSE streaming response")]
 
 
 class ChatResponse(BaseModel):

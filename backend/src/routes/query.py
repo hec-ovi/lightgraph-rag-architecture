@@ -1,6 +1,7 @@
 import json
 
 from fastapi import APIRouter, HTTPException
+from fastapi.responses import Response
 from sse_starlette.sse import EventSourceResponse
 
 from src.core.exceptions import GroupNotFoundError, LightRAGNotReadyError
@@ -20,12 +21,7 @@ async def query_group(group_id: str, data: QueryRequest) -> QueryResponse:
     - **global**: Knowledge graph — broad relationship retrieval
     - **hybrid**: Combines local + global graph retrieval
     - **mix**: Combines knowledge graph + vector retrieval (recommended)
-
-    Set `stream: true` in the request body to receive a Server-Sent Events stream instead.
     """
-    if data.stream:
-        return _stream_response(group_id, data)
-
     try:
         return await query_service.query_group(group_id, data.query, data.mode)
     except GroupNotFoundError as e:
@@ -34,7 +30,15 @@ async def query_group(group_id: str, data: QueryRequest) -> QueryResponse:
         raise HTTPException(status_code=503, detail=str(e))
 
 
-def _stream_response(group_id: str, data: QueryRequest) -> EventSourceResponse:
+@router.post("/stream", response_class=Response)
+async def query_group_stream(group_id: str, data: QueryRequest) -> EventSourceResponse:
+    """Stream a query response via Server-Sent Events.
+
+    SSE event format:
+    - `event: chunk` / `data: <text>` — response text chunk
+    - `event: done` / `data: {"query", "mode", "group_id"}` — stream complete
+    - `event: error` / `data: {"detail": "..."}` — error occurred
+    """
     async def event_generator():
         try:
             async for chunk in query_service.query_group_stream(group_id, data.query, data.mode):
