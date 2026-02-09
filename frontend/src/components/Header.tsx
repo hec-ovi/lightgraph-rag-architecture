@@ -1,9 +1,15 @@
-import { Brain, Moon, Sun } from "lucide-react";
+import { Brain, Moon, Sun, Monitor } from "lucide-react";
 import { Button } from "./ui";
 import { useTheme } from "../stores/theme.store";
 
 function Header() {
   const { theme, toggle } = useTheme();
+
+  const ThemeIcon = {
+    light: Sun,
+    dark: Moon,
+    system: Monitor,
+  }[theme];
 
   return (
     <header className="border-b bg-card px-6 py-4">
@@ -20,13 +26,9 @@ function Header() {
           </div>
         </div>
 
-        <Button variant="ghost" size="icon" onClick={toggle}>
-          {theme === "light" ? (
-            <Moon className="h-5 w-5" />
-          ) : (
-            <Sun className="h-5 w-5" />
-          )}
-          <span className="sr-only">Toggle theme</span>
+        <Button variant="ghost" size="icon" onClick={toggle} title={`Theme: ${theme}`}>
+          <ThemeIcon className="h-5 w-5" />
+          <span className="sr-only">Toggle theme (current: {theme})</span>
         </Button>
       </div>
     </header>
