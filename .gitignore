@@ -8,6 +8,16 @@ agent/
 node_modules/
 dist/
 
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+*.egg-info/
+
+# Backend data (persisted via Docker volumes)
+backend/data/
+
 # OS
 .DS_Store
 Thumbs.db
