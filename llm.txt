@@ -1,0 +1,453 @@
+# LightGraph RAG API — Complete Reference
+
+Backend API for a knowledge graph RAG system. Base URL: `http://localhost:8000`
+
+OpenAPI spec: `GET /openapi.json` | Interactive docs: `GET /docs`
+
+## Concepts
+
+- **Group**: An isolated document collection with its own knowledge graph. Documents in one group are invisible to other groups.
+- **Document**: Text content inserted into a group. LightRAG extracts entities and relationships to build the knowledge graph automatically.
+- **Query**: Search a group's knowledge base using 5 RAG modes (naive, local, global, hybrid, mix).
+- **Conversation**: A chat session tied to a group. Messages are persisted and conversation history is passed to LightRAG for context-aware answers.
+
+## Data Flow
+
+```
+1. Create a Group          → POST /groups
+2. Insert Documents        → POST /groups/{id}/documents (or /upload for files)
+3. Query the Knowledge Base → POST /groups/{id}/query
+4. Or Chat with Memory     → POST /groups/{id}/conversations → POST .../chat
+```
+
+---
+
+## Endpoints
+
+### Health
+
+#### GET /health
+
+Check if the backend is running.
+
+Response `200`:
+```json
+{"status": "healthy", "service": "lightgraph-rag-api", "version": "0.1.0"}
+```
+
+---
+
+### Groups
+
+Groups are isolated knowledge graph containers. Each group has its own LightRAG instance with separate entity graph, vector store, and document storage.
+
+#### POST /groups
+
+Create a new document group.
+
+Request:
+```json
+{"name": "Research Papers", "description": "ML research documents"}
+```
+- `name` (string, required, 1-100 chars, unique)
+- `description` (string, optional, max 500 chars, default "")
+
+Response `201`:
+```json
+{
+  "id": "f379d9beb0cf",
+  "name": "Research Papers",
+  "description": "ML research documents",
+  "document_count": 0,
+  "created_at": "2026-02-09 18:14:25",
+  "updated_at": "2026-02-09 18:14:25"
+}
+```
+
+Errors: `409` if name already exists.
+
+#### GET /groups
+
+List all groups with document counts.
+
+Response `200`:
+```json
+{
+  "groups": [
+    {"id": "...", "name": "...", "description": "...", "document_count": 3, "created_at": "...", "updated_at": "..."}
+  ],
+  "total": 1
+}
+```
+
+#### GET /groups/{group_id}
+
+Get a single group.
+
+Response `200`: Same shape as group object above.
+Errors: `404` if not found.
+
+#### PATCH /groups/{group_id}
+
+Update a group's name or description. Only include fields you want to change.
+
+Request:
+```json
+{"name": "New Name", "description": "New description"}
+```
+- `name` (string, optional, 1-100 chars)
+- `description` (string, optional, max 500 chars)
+
+Response `200`: Updated group object.
+Errors: `404` if not found, `409` if new name conflicts.
+
+#### DELETE /groups/{group_id}
+
+Delete a group and ALL its data (documents, conversations, knowledge graph).
+
+Response `204`: No content.
+Errors: `404` if not found.
+
+---
+
+### Documents
+
+Documents belong to a group. When inserted, LightRAG processes the text to extract entities and relationships, building the knowledge graph.
+
+#### POST /groups/{group_id}/documents
+
+Insert raw text content.
+
+Request:
+```json
+{"content": "Full text content to index...", "filename": "paper.txt"}
+```
+- `content` (string, required, min 1 char)
+- `filename` (string, optional, default "manual_input.txt")
+
+Response `201`:
+```json
+{
+  "id": "d53dfa0dea79",
+  "group_id": "f379d9beb0cf",
+  "filename": "paper.txt",
+  "content_length": 4523,
+  "created_at": "2026-02-09 18:19:55"
+}
+```
+
+Errors: `404` group not found, `503` LightRAG not ready.
+
+**Note:** Document insertion triggers entity extraction via the LLM. For large documents, this can take 30-60+ seconds depending on content length and model speed.
+
+#### POST /groups/{group_id}/documents/upload
+
+Upload a text file via multipart form data.
+
+Request: `multipart/form-data` with field `file`.
+
+```bash
+curl -X POST http://localhost:8000/groups/GROUP_ID/documents/upload \
+  -F "file=@document.txt"
+```
+
+Supported file types: `.txt`, `.md`, `.csv`, `.json`, `.xml`, `.html`, `.py`, `.js`, `.ts`, `.yaml`, `.yml`, `.log`
+
+Response `201`: Same as text insert.
+Errors: `400` unsupported file type, `404` group not found, `503` LightRAG not ready.
+
+#### GET /groups/{group_id}/documents
+
+List all documents in a group.
+
+Response `200`:
+```json
+{
+  "documents": [
+    {"id": "...", "group_id": "...", "filename": "...", "content_length": 4523, "created_at": "..."}
+  ],
+  "total": 2
+}
+```
+
+Errors: `404` group not found.
+
+#### GET /groups/{group_id}/documents/{document_id}
+
+Get a single document's metadata.
+
+Response `200`: Single document object.
+Errors: `404` group or document not found.
+
+---
+
+### Query
+
+Query a group's knowledge base. The group must have documents inserted first.
+
+#### POST /groups/{group_id}/query
+
+Query with JSON response.
+
+Request:
+```json
+{"query": "What are the key findings?", "mode": "mix"}
+```
+- `query` (string, required)
+- `mode` (string, optional, default "mix"): one of `naive`, `local`, `global`, `hybrid`, `mix`
+
+**Query Modes:**
+| Mode | Strategy | Use When |
+|------|----------|----------|
+| `naive` | Vector similarity only (traditional RAG) | Simple search, fast |
+| `local` | Knowledge graph — entity-focused | "What is X?", specific facts |
+| `global` | Knowledge graph — broad relationships | "How does X relate to Y?" |
+| `hybrid` | Local + global combined | General graph queries |
+| `mix` | Graph + vector combined | **Default, recommended** |
+
+Response `200`:
+```json
+{
+  "query": "What are the key findings?",
+  "mode": "mix",
+  "response": "Based on the documents, the key findings are...",
+  "group_id": "f379d9beb0cf"
+}
+```
+
+Errors: `404` group not found, `503` LightRAG not ready.
+
+#### POST /groups/{group_id}/query/stream
+
+Same request body as above. Returns Server-Sent Events.
+
+SSE Events:
+```
+event: chunk
+data: Based on the
+
+event: chunk
+data: documents, the key
+
+event: done
+data: {"query": "...", "mode": "mix", "group_id": "..."}
+```
+
+Event types:
+- `chunk`: Response text fragment (data is plain text)
+- `done`: Stream complete (data is JSON with metadata)
+- `error`: Error occurred (data is JSON: `{"detail": "..."}`)
+
+---
+
+### Conversations
+
+Conversations are chat sessions tied to a group. Each conversation maintains its own message history. When chatting, the last 5 turns of history are passed to LightRAG for context-aware responses.
+
+#### POST /groups/{group_id}/conversations
+
+Create a new conversation.
+
+Request:
+```json
+{"title": "Research Discussion"}
+```
+- `title` (string, optional, max 200 chars, default "New Conversation")
+
+Response `201`:
+```json
+{
+  "id": "26126fdf807f",
+  "group_id": "f379d9beb0cf",
+  "title": "Research Discussion",
+  "message_count": 0,
+  "created_at": "2026-02-09 18:26:00",
+  "updated_at": "2026-02-09 18:26:00"
+}
+```
+
+Errors: `404` group not found.
+
+#### GET /groups/{group_id}/conversations
+
+List all conversations in a group, ordered by most recently updated.
+
+Response `200`:
+```json
+{
+  "conversations": [
+    {"id": "...", "group_id": "...", "title": "...", "message_count": 4, "created_at": "...", "updated_at": "..."}
+  ],
+  "total": 1
+}
+```
+
+Errors: `404` group not found.
+
+#### GET /groups/{group_id}/conversations/{conversation_id}
+
+Get conversation with full message history.
+
+Response `200`:
+```json
+{
+  "conversation": {
+    "id": "26126fdf807f",
+    "group_id": "f379d9beb0cf",
+    "title": "Research Discussion",
+    "message_count": 4,
+    "created_at": "...",
+    "updated_at": "..."
+  },
+  "messages": [
+    {
+      "id": "msg1",
+      "conversation_id": "26126fdf807f",
+      "role": "user",
+      "content": "What is LightRAG?",
+      "query_mode": null,
+      "created_at": "..."
+    },
+    {
+      "id": "msg2",
+      "conversation_id": "26126fdf807f",
+      "role": "assistant",
+      "content": "LightRAG is a knowledge graph RAG system...",
+      "query_mode": "mix",
+      "created_at": "..."
+    }
+  ]
+}
+```
+
+Errors: `404` group or conversation not found.
+
+#### POST /groups/{group_id}/conversations/{conversation_id}/chat
+
+Send a message and get a RAG-powered response. Both messages are persisted.
+
+Request:
+```json
+{"message": "Explain the architecture", "mode": "mix"}
+```
+- `message` (string, required)
+- `mode` (string, optional, default "mix")
+
+Response `200`:
+```json
+{
+  "user_message": {
+    "id": "...",
+    "conversation_id": "...",
+    "role": "user",
+    "content": "Explain the architecture",
+    "query_mode": null,
+    "created_at": "..."
+  },
+  "assistant_message": {
+    "id": "...",
+    "conversation_id": "...",
+    "role": "assistant",
+    "content": "The architecture consists of...",
+    "query_mode": "mix",
+    "created_at": "..."
+  }
+}
+```
+
+Errors: `404` group or conversation not found, `503` LightRAG not ready.
+
+#### POST /groups/{group_id}/conversations/{conversation_id}/chat/stream
+
+Same request body as chat. Returns SSE stream.
+
+SSE Events:
+```
+event: chunk
+data: The architecture
+
+event: chunk
+data: consists of...
+
+event: done
+data: {"group_id": "...", "conversation_id": "...", "mode": "mix"}
+```
+
+The user message is saved immediately when the request is received. The full assistant response is saved to the database after the stream completes.
+
+Event types: same as query stream (`chunk`, `done`, `error`).
+
+#### DELETE /groups/{group_id}/conversations/{conversation_id}
+
+Delete a conversation and all its messages.
+
+Response `204`: No content.
+Errors: `404` group or conversation not found.
+
+---
+
+## Error Format
+
+All errors return:
+```json
+{"detail": "Human-readable error message"}
+```
+
+Common HTTP status codes:
+- `400` — Invalid request (bad file type, validation error)
+- `404` — Resource not found (group, document, conversation)
+- `409` — Conflict (duplicate group name)
+- `422` — Validation error (missing required fields, wrong types)
+- `503` — Service unavailable (Ollama not reachable, LightRAG init failed)
+
+---
+
+## SSE Streaming Guide (Frontend)
+
+For JavaScript/TypeScript frontends, use `EventSource` or `fetch` with stream reading:
+
+```typescript
+// Using fetch for POST requests with SSE
+const response = await fetch(`${BASE_URL}/groups/${groupId}/query/stream`, {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ query: 'What is LightRAG?', mode: 'mix' }),
+});
+
+const reader = response.body.getReader();
+const decoder = new TextDecoder();
+
+while (true) {
+  const { done, value } = await reader.read();
+  if (done) break;
+
+  const text = decoder.decode(value);
+  // Parse SSE format: "event: chunk\ndata: text\n\n"
+  for (const line of text.split('\n')) {
+    if (line.startsWith('data: ')) {
+      const data = line.slice(6);
+      // Append to UI
+    }
+  }
+}
+```
+
+---
+
+## ID Format
+
+All IDs are 12-character hex strings (e.g., `f379d9beb0cf`). They are generated server-side and returned in creation responses. Store them for subsequent requests.
+
+## Timestamps
+
+All timestamps are UTC in `YYYY-MM-DD HH:MM:SS` format (SQLite datetime).
+
+## CORS
+
+CORS is fully open (`*`). The backend accepts requests from any origin.
+
+## Persistence
+
+- **SQLite database** at `/app/data/metadata.db` — stores groups, documents (metadata only), conversations, messages.
+- **LightRAG file storage** at `/app/data/groups/{group_id}/` — stores knowledge graph (graphml), vector indices (json), text chunks, and LLM cache per group.
+- Both are persisted via Docker volume bind-mount at `./backend/data/`.
