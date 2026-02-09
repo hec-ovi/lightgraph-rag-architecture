@@ -2,7 +2,7 @@
 
 A fully local, Dockerized knowledge graph RAG system powered by [LightRAG](https://github.com/HKUDS/LightRAG) and [Ollama](https://ollama.com). Supports multiple isolated document groups with separate knowledge graphs, naive + graph-based RAG query modes, persistent conversation memory, and full OpenAPI documentation.
 
-> **Current Stage: Backend API** — The frontend will be added in future updates. This phase delivers a complete, production-ready REST API. See `llm.txt` for the full endpoint reference to build a frontend against.
+> **Full-Stack Complete** — Backend API and React frontend implemented. See `llm.txt` for the API reference.
 
 ## Features
 
@@ -20,7 +20,7 @@ A fully local, Dockerized knowledge graph RAG system powered by [LightRAG](https
 ```
 ┌──────────────┐     ┌───────────────────────────────────────┐
 │   Frontend   │────▶│         Backend (FastAPI)              │
-│  (future)    │     │         Port 8000                      │
+│  (React)     │     │         Port 8000                      │
 └──────────────┘     │                                        │
                      │  Routes ──▶ Services ──▶ Tools         │
                      │                │                       │
@@ -57,6 +57,9 @@ A fully local, Dockerized knowledge graph RAG system powered by [LightRAG](https
 | Containerization | Docker Compose | Multi-stage builds |
 | Streaming | SSE (sse-starlette) | Server-Sent Events |
 | PDF Extraction | PyMuPDF | 1.26.x |
+| Frontend | React + Vite + TypeScript | React 19, Tailwind v4 |
+| State Management | TanStack Query + Zustand | Server + client state |
+| Routing | TanStack Router | File-based routing |
 
 ## API Overview
 
@@ -95,8 +98,18 @@ A fully local, Dockerized knowledge graph RAG system powered by [LightRAG](https
 ├── data/                           # Sample test data for RAG ingestion
 │   └── samples/
 │       └── pydantic_ai_docs.txt   # Pydantic AI documentation (~10KB)
-└── frontend/                       # React frontend (future updates)
-    └── ...
+├── frontend/                       # React + Vite frontend
+│   ├── Dockerfile                  # Multi-stage nginx build
+│   ├── nginx.conf                  # Nginx configuration
+│   ├── src/
+│   │   ├── components/             # UI components + features
+│   │   │   ├── ui/                 # Button, Card, Input, etc.
+│   │   │   └── features/           # GroupList, QueryPanel, etc.
+│   │   ├── routes/                 # TanStack Router pages
+│   │   ├── services/               # API services
+│   │   ├── stores/                 # Zustand stores
+│   │   └── types/                  # TypeScript definitions
+│   └── ...
 ```
 
 ## Quick Start
@@ -178,6 +191,7 @@ curl -X POST http://localhost:8000/groups/GROUP_ID/conversations/CONV_ID/chat \
 | `OLLAMA_CONTEXT_LENGTH` | `32768` | LLM context window (tokens) |
 | `OLLAMA_KEEP_ALIVE` | `5m` | Model VRAM retention after last request |
 | `BACKEND_PORT` | `8000` | Backend API port |
+| `FRONTEND_PORT` | `5173` | Frontend nginx port |
 | `OLLAMA_BASE_URL` | `http://ollama:11434` | Ollama server URL (internal Docker network) |
 | `LIGHTRAG_CONTEXT_WINDOW` | `32768` | Context window passed to LightRAG |
 | `LIGHTRAG_EMBEDDING_DIM` | `1024` | Embedding dimensions (must match model) |
@@ -195,6 +209,7 @@ curl -X POST http://localhost:8000/groups/GROUP_ID/conversations/CONV_ID/chat \
 
 ## Development
 
+### Backend
 ```bash
 # Run backend locally (outside Docker, for development)
 cd backend
@@ -205,6 +220,27 @@ uv run uvicorn src.main:app --host 0.0.0.0 --port 8000 --reload --reload-dir src
 # OpenAPI docs
 open http://localhost:8000/docs
 ```
+
+### Frontend
+```bash
+# Run frontend locally with HMR
+cd frontend
+npm install
+npm run dev
+
+# Build for production
+npm run build
+```
+
+## Frontend Features
+
+- **Dashboard** — Overview with quick navigation to all features
+- **Groups Management** — Create, edit, delete document groups with isolated knowledge graphs
+- **Document Upload** — Upload files (.txt, .md, .pdf, etc.) or paste text directly
+- **Query Interface** — Ask questions with 5 RAG modes (mix recommended) and streaming responses
+- **Conversations** — Persistent chat sessions with memory and streaming
+- **Dark Mode** — Full light/dark theme support
+- **Responsive Design** — Works on desktop and mobile
 
 ## License
 

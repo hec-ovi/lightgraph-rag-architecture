@@ -56,3 +56,14 @@ services:
       timeout: 10s
       start_period: 30s
       retries: 3
+
+  frontend:
+    build: ./frontend
+    image: lightrag-frontend:latest
+    container_name: lightrag-frontend
+    restart: unless-stopped
+    ports:
+      - "${FRONTEND_PORT:-5173}:80"
+    depends_on:
+      backend:
+        condition: service_healthy
