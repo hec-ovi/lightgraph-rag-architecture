@@ -49,7 +49,16 @@ A fully local, Dockerized knowledge graph RAG system powered by [LightRAG](https
 ├── .env.template               # Environment variables template
 ├── backend/                    # FastAPI backend service
 │   ├── Dockerfile
-│   └── src/                    # (coming in next tasks)
+│   ├── pyproject.toml          # Dependencies (uv)
+│   └── src/
+│       ├── main.py             # FastAPI app entry point
+│       ├── routes/             # HTTP route handlers
+│       ├── services/           # Business logic
+│       ├── models/             # Pydantic DTOs
+│       ├── tools/              # Isolated reusable tools
+│       ├── prompts/            # AI prompts as .md files
+│       ├── core/               # Config, database, exceptions
+│       └── lib/                # Utilities
 ├── ollama/                     # Ollama ROCm inference service
 │   ├── Dockerfile
 │   └── entrypoint.sh           # Auto-pulls LLM + embedding models

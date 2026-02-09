@@ -1,0 +1,19 @@
+[project]
+name = "lightrag-backend"
+version = "0.1.0"
+description = "LightRAG knowledge graph RAG backend with FastAPI and Ollama"
+requires-python = ">=3.12"
+dependencies = [
+    "fastapi[standard]",
+    "aiosqlite",
+    "lightrag-hku",
+    "sse-starlette",
+    "python-multipart",
+]
+
+[tool.ruff]
+line-length = 120
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP"]
