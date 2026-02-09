@@ -10,6 +10,7 @@ dependencies = [
     "sse-starlette",
     "python-multipart",
     "ollama>=0.6.1",
+    "pymupdf>=1.26.7",
 ]
 
 [tool.ruff]

@@ -25,9 +25,9 @@ async def insert_text(group_id: str, data: DocumentInsert) -> DocumentResponse:
 
 @router.post("/upload", status_code=201)
 async def upload_file(group_id: str, file: UploadFile) -> DocumentResponse:
-    """Upload a text file to insert into a group's knowledge base.
+    """Upload a file to insert into a group's knowledge base.
 
-    Supported formats: .txt, .md, .csv, .json, .xml, .html, .py, .js, .ts, .yaml, .yml, .log
+    Supported formats: .txt, .md, .csv, .json, .xml, .html, .py, .js, .ts, .yaml, .yml, .log, .pdf
     """
     try:
         content_bytes = await file.read()
