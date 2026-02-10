@@ -7,6 +7,12 @@ class Settings(BaseSettings):
     ollama_base_url: str = "http://ollama:11434"
     ollama_model: str = "gpt-oss:20b"
     ollama_embed_model: str = "bge-m3:latest"
+    ollama_request_timeout_seconds: int = 900
+    ollama_embed_timeout_seconds: int = 300
+    ollama_health_timeout_seconds: int = 5
+    ollama_keep_alive: str = "-1"
+    lightrag_llm_timeout_seconds: int = 900
+    lightrag_embedding_timeout_seconds: int = 300
 
     lightrag_context_window: int = 32768
     lightrag_embedding_dim: int = 1024

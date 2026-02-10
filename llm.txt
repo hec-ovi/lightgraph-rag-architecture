@@ -32,7 +32,13 @@ Check if the backend is running.
 
 Response `200`:
 ```json
-{"status": "healthy", "service": "lightgraph-rag-api", "version": "0.1.0"}
+{
+  "status": "healthy",
+  "service": "lightgraph-rag-api",
+  "version": "0.1.0",
+  "models_loaded": true,
+  "loaded_models": ["gpt-oss:20b", "bge-m3:latest"]
+}
 ```
 
 ---

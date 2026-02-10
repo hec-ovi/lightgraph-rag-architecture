@@ -2,6 +2,7 @@ FROM ollama/ollama:rocm
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
     procps \
+    curl \
     && rm -rf /var/lib/apt/lists/*
 
 ENV OLLAMA_MODEL=gpt-oss:20b \
@@ -10,7 +11,7 @@ ENV OLLAMA_MODEL=gpt-oss:20b \
     OLLAMA_CONTEXT_LENGTH=32768 \
     OLLAMA_FLASH_ATTENTION=1 \
     OLLAMA_KV_CACHE_TYPE=q8_0 \
-    OLLAMA_KEEP_ALIVE=5m \
+    OLLAMA_KEEP_ALIVE=-1 \
     OLLAMA_NUM_PARALLEL=1 \
     OLLAMA_MAX_LOADED_MODELS=2 \
     HSA_OVERRIDE_GFX_VERSION=11.5.1 \

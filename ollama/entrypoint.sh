@@ -3,6 +3,7 @@ set -e
 
 MODEL_NAME="${OLLAMA_MODEL:-gpt-oss:20b}"
 EMBED_MODEL="${OLLAMA_EMBED_MODEL:-bge-m3:latest}"
+WARMUP_ENABLED="${OLLAMA_WARMUP:-true}"
 OLLAMA_PID=""
 
 log() {
@@ -56,6 +57,36 @@ pull_model() {
 
 pull_model "$MODEL_NAME"
 pull_model "$EMBED_MODEL"
+
+warmup_generate() {
+    local name="$1"
+    log "Warming LLM model into VRAM: $name"
+    if ! curl -sS http://localhost:11434/api/generate \
+        -H "Content-Type: application/json" \
+        -d "{\"model\":\"$name\",\"prompt\":\"ping\",\"stream\":false,\"keep_alive\":\"${OLLAMA_KEEP_ALIVE:--1}\"}" \
+        > /dev/null; then
+        return 1
+    fi
+}
+
+warmup_embeddings() {
+    local name="$1"
+    log "Warming embed model into VRAM: $name"
+    if ! curl -sS http://localhost:11434/api/embed \
+        -H "Content-Type: application/json" \
+        -d "{\"model\":\"$name\",\"input\":\"ping\",\"keep_alive\":\"${OLLAMA_KEEP_ALIVE:--1}\"}" \
+        > /dev/null; then
+        return 1
+    fi
+}
+
+if [ "$WARMUP_ENABLED" = "true" ] || [ "$WARMUP_ENABLED" = "1" ]; then
+    log "Warming models (keep_alive=${OLLAMA_KEEP_ALIVE:--1})"
+    warmup_generate "$MODEL_NAME" || log "LLM warmup failed (continuing)"
+    warmup_embeddings "$EMBED_MODEL" || log "Embed warmup failed (continuing)"
+else
+    log "Model warmup disabled (OLLAMA_WARMUP=$WARMUP_ENABLED)"
+fi
 
 log "========================================"
 log "Ollama running with GPU support"
