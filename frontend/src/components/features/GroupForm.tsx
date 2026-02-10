@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import {
   Dialog,
   DialogContent,
@@ -28,19 +28,11 @@ function GroupForm({
   group,
   isSubmitting,
 }: GroupFormProps) {
-  const [name, setName] = useState("");
-  const [description, setDescription] = useState("");
+  const [name, setName] = useState(group?.name || "");
+  const [description, setDescription] = useState(group?.description || "");
   const [errors, setErrors] = useState<{ name?: string }>({});
 
   const isEditing = !!group;
-
-  useEffect(() => {
-    if (open) {
-      setName(group?.name || "");
-      setDescription(group?.description || "");
-      setErrors({});
-    }
-  }, [open, group]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();

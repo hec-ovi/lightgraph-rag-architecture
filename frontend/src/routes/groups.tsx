@@ -499,6 +499,7 @@ function GroupsPage() {
       )}
 
       <GroupForm
+        key={`${editingGroup?.id ?? "new"}-${isGroupFormOpen ? "open" : "closed"}`}
         open={isGroupFormOpen}
         onClose={() => {
           setIsGroupFormOpen(false);

@@ -115,9 +115,14 @@ function ConversationsPage() {
   }, [input]);
 
   useEffect(() => {
-    if (conversationData) {
+    if (!conversationData) return;
+
+    const frame = window.requestAnimationFrame(() => {
       setMessages(conversationData.messages);
-    }
+    });
+    return () => {
+      window.cancelAnimationFrame(frame);
+    };
   }, [conversationData]);
 
   useEffect(() => {
