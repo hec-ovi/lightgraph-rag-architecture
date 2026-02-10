@@ -99,7 +99,7 @@ A fully local, Dockerized knowledge graph RAG system powered by [LightRAG](https
 ├── data/                           # Sample test data for RAG ingestion
 │   └── samples/
 │       ├── pydantic_ai_docs.txt   # Pydantic AI documentation (~10KB)
-│       └── confucius_code_agent_2512.10398v6.pdf
+│       └── confucius_code_agent_2512.10398v6.pdf   # Confucius Code Agent paper (~1.3MB)
 ├── tests/
 │   ├── README.md                   # End-to-end test instructions
 │   └── e2e/
@@ -188,6 +188,10 @@ curl -X POST http://localhost:8000/groups/GROUP_ID/documents/upload \
 # Upload the included sample data
 curl -X POST http://localhost:8000/groups/GROUP_ID/documents/upload \
   -F "file=@data/samples/pydantic_ai_docs.txt"
+
+# Upload the larger sample PDF (stress ingestion)
+curl -X POST http://localhost:8000/groups/GROUP_ID/documents/upload \
+  -F "file=@data/samples/confucius_code_agent_2512.10398v6.pdf"
 
 # Chat (replace CONV_ID)
 curl -X POST http://localhost:8000/groups/GROUP_ID/conversations/CONV_ID/chat \

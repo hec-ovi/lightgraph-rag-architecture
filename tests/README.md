@@ -63,6 +63,13 @@ python tests/e2e/backend_e2e.py \
   --pdf-path tests/e2e/fixtures/small.pdf
 ```
 
+Use the larger sample PDF for a heavier ingestion path:
+
+```bash
+bash tests/e2e/run_in_backend_container.sh \
+  --pdf-path /app/data/samples/confucius_code_agent_2512.10398v6.pdf
+```
+
 ## Exit Codes
 
 - `0`: all checks passed.
