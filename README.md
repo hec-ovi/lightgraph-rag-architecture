@@ -270,8 +270,11 @@ npm run build
 
 - **Dashboard** — Overview with quick navigation to all features
 - **Groups Management** — Create, edit, delete document groups with isolated knowledge graphs
-- **Document Upload** — Upload files (.txt, .md, .pdf, etc.) or paste text directly
+- **Inline Document Ingestion** — Single-page (non-popup) text + file ingestion panel in Groups detail
+- **File Explorer Upload** — Upload files from disk (.txt, .md, .pdf, .csv, .json, .xml, .html, .py, .js, .ts, .yaml, .yml, .log)
+- **Ingestion Refresh Memory** — If refresh happens during ingestion, frontend blocks with a loading page until the document appears
 - **Query Interface** — Ask questions with 5 RAG modes (mix recommended) and streaming responses
+- **Interrupt Controls** — Stop in-flight query/chat generation from the UI
 - **Conversations** — Persistent chat sessions with memory and streaming
 - **Dark Mode** — Full light/dark theme support
 - **Responsive Design** — Works on desktop and mobile

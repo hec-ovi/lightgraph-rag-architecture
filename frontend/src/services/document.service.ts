@@ -33,4 +33,9 @@ export const documentService = {
       return response.json();
     });
   },
+
+  delete: (groupId: string, documentId: string): Promise<void> =>
+    fetchApi(`/groups/${groupId}/documents/${documentId}`, {
+      method: "DELETE",
+    }),
 };

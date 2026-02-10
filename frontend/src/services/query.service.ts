@@ -7,11 +7,13 @@ export const queryService = {
     request: QueryRequest,
     onChunk: (chunk: string) => void,
     onDone: (metadata: { query: string; mode: QueryMode; group_id: string }) => void,
-    onError: (error: string) => void
+    onError: (error: string) => void,
+    signal?: AbortSignal
   ): Promise<void> => {
     const reader = await getStreamReader(
       `/groups/${groupId}/query/stream`,
-      request
+      request,
+      signal
     );
     const decoder = new TextDecoder();
 

@@ -5,9 +5,9 @@ import {
   Search, 
   FolderOpen, 
   Send, 
-  Loader2, 
   Sparkles,
-  ChevronDown
+  ChevronDown,
+  Square,
 } from "lucide-react";
 import { 
   Button, 
@@ -50,9 +50,11 @@ function QueryPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [results, setResults] = useState<QueryResult[]>([]);
   const [streamingResponse, setStreamingResponse] = useState("");
+  const [pendingQueryText, setPendingQueryText] = useState("");
   const [showModeDropdown, setShowModeDropdown] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const activeStreamAbortRef = useRef<AbortController | null>(null);
 
   const { data: groupsData, isLoading: groupsLoading } = useQuery({
     queryKey: ["groups"],
@@ -79,14 +81,46 @@ function QueryPage() {
     }
   }, [query]);
 
+  useEffect(() => {
+    return () => {
+      activeStreamAbortRef.current?.abort();
+    };
+  }, []);
+
+  const handleCancelStream = () => {
+    if (!isLoading) return;
+
+    activeStreamAbortRef.current?.abort();
+    activeStreamAbortRef.current = null;
+
+    setResults((prev) => [
+      ...prev,
+      {
+        query: pendingQueryText || "Interrupted query",
+        response: streamingResponse
+          ? `${streamingResponse}\n\n_Interrupted by user._`
+          : "_Interrupted by user before receiving chunks._",
+        mode,
+        timestamp: new Date(),
+      },
+    ]);
+
+    setStreamingResponse("");
+    setPendingQueryText("");
+    setIsLoading(false);
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!query.trim() || isLoading || !selectedGroupId) return;
 
     const currentQuery = query.trim();
+    const abortController = new AbortController();
+    activeStreamAbortRef.current = abortController;
     setQuery("");
     setIsLoading(true);
     setStreamingResponse("");
+    setPendingQueryText(currentQuery);
     if (textareaRef.current) textareaRef.current.style.height = "auto";
 
     let fullResponse = "";
@@ -104,7 +138,9 @@ function QueryPage() {
             ...prev,
             { query: currentQuery, response: fullResponse, mode, timestamp: new Date() },
           ]);
+          activeStreamAbortRef.current = null;
           setStreamingResponse("");
+          setPendingQueryText("");
           setIsLoading(false);
         },
         (error) => {
@@ -112,11 +148,28 @@ function QueryPage() {
             ...prev,
             { query: currentQuery, response: `Error: ${error}`, mode, timestamp: new Date() },
           ]);
+          activeStreamAbortRef.current = null;
           setStreamingResponse("");
+          setPendingQueryText("");
           setIsLoading(false);
-        }
+        },
+        abortController.signal
       );
-    } catch {
+    } catch (error) {
+      if (error instanceof DOMException && error.name === "AbortError") {
+        return;
+      }
+      setResults((prev) => [
+        ...prev,
+        {
+          query: currentQuery,
+          response: "Error: Request failed before stream initialization.",
+          mode,
+          timestamp: new Date(),
+        },
+      ]);
+      setPendingQueryText("");
+      activeStreamAbortRef.current = null;
       setIsLoading(false);
     }
   };
@@ -289,8 +342,8 @@ function QueryPage() {
                       <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
                         <span className="text-xs font-medium text-primary">You</span>
                       </div>
-                      <div className="flex-1 pt-1">
-                        <p className="text-sm">{results[results.length - 1]?.query || query}</p>
+                    <div className="flex-1 pt-1">
+                        <p className="text-sm">{pendingQueryText}</p>
                       </div>
                     </div>
 
@@ -332,13 +385,16 @@ function QueryPage() {
                       }
                     }}
                   />
-                  <Button 
-                    type="submit" 
-                    disabled={!query.trim() || isLoading}
+                  <Button
+                    type={isLoading ? "button" : "submit"}
+                    onClick={isLoading ? handleCancelStream : undefined}
+                    variant={isLoading ? "destructive" : "default"}
+                    disabled={isLoading ? false : !query.trim()}
                     className="h-auto px-4"
+                    title={isLoading ? "Stop generation" : "Send query"}
                   >
                     {isLoading ? (
-                      <Loader2 className="h-5 w-5 animate-spin" />
+                      <Square className="h-5 w-5" />
                     ) : (
                       <Send className="h-5 w-5" />
                     )}

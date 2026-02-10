@@ -110,6 +110,8 @@ export interface HealthResponse {
   status: string;
   service: string;
   version: string;
+  models_loaded: boolean;
+  loaded_models: string[];
 }
 
 // Error

@@ -26,7 +26,8 @@ export async function fetchApi<T>(
 
 export async function getStreamReader(
   path: string,
-  body: unknown
+  body: unknown,
+  signal?: AbortSignal
 ): Promise<ReadableStreamDefaultReader<Uint8Array>> {
   const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
 
@@ -34,6 +35,7 @@ export async function getStreamReader(
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
+    signal,
   });
 
   if (!res.ok) throw new Error("Stream request failed");

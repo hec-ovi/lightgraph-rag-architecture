@@ -35,11 +35,13 @@ export const conversationService = {
     request: ChatRequest,
     onChunk: (chunk: string) => void,
     onDone: (metadata: { group_id: string; conversation_id: string; mode: QueryMode }) => void,
-    onError: (error: string) => void
+    onError: (error: string) => void,
+    signal?: AbortSignal
   ): Promise<void> => {
     const reader = await getStreamReader(
       `/groups/${groupId}/conversations/${conversationId}/chat/stream`,
-      request
+      request,
+      signal
     );
     const decoder = new TextDecoder();
 

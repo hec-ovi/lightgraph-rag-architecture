@@ -5,12 +5,12 @@ import {
   MessageSquare, 
   FolderOpen, 
   Send, 
-  Loader2, 
   Plus,
   Trash2,
   ChevronDown,
   Bot,
-  User
+  User,
+  Square,
 } from "lucide-react";
 import { 
   Button, 
@@ -45,6 +45,7 @@ function ConversationsPage() {
   const [selectedConversation, setSelectedConversation] = useState<Conversation | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
+  const [pendingInput, setPendingInput] = useState("");
   const [mode, setMode] = useState<QueryMode>("mix");
   const [isLoading, setIsLoading] = useState(false);
   const [streamingContent, setStreamingContent] = useState("");
@@ -53,6 +54,7 @@ function ConversationsPage() {
   const [showGroupDropdown, setShowGroupDropdown] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const activeChatAbortRef = useRef<AbortController | null>(null);
 
   const { data: groupsData, isLoading: groupsLoading } = useQuery({
     queryKey: ["groups"],
@@ -118,6 +120,12 @@ function ConversationsPage() {
     }
   }, [conversationData]);
 
+  useEffect(() => {
+    return () => {
+      activeChatAbortRef.current?.abort();
+    };
+  }, []);
+
   const handleCreateConversation = () => {
     if (!newChatTitle.trim()) return;
     createConversationMutation.mutate(newChatTitle.trim());
@@ -128,7 +136,10 @@ function ConversationsPage() {
     if (!input.trim() || isLoading || !selectedGroupId || !selectedConversation) return;
 
     const currentInput = input.trim();
+    const abortController = new AbortController();
+    activeChatAbortRef.current = abortController;
     setInput("");
+    setPendingInput(currentInput);
     setIsLoading(true);
     setStreamingContent("");
     if (textareaRef.current) textareaRef.current.style.height = "auto";
@@ -158,7 +169,9 @@ function ConversationsPage() {
           queryClient.invalidateQueries({ 
             queryKey: ["conversation", selectedGroupId, selectedConversation.id] 
           });
+          activeChatAbortRef.current = null;
           setStreamingContent("");
+          setPendingInput("");
           setIsLoading(false);
         },
         (error) => {
@@ -170,13 +183,57 @@ function ConversationsPage() {
             query_mode: mode,
             created_at: new Date().toISOString(),
           }]);
+          activeChatAbortRef.current = null;
           setStreamingContent("");
+          setPendingInput("");
           setIsLoading(false);
-        }
+        },
+        abortController.signal
       );
-    } catch {
+    } catch (error) {
+      if (error instanceof DOMException && error.name === "AbortError") {
+        return;
+      }
+      setMessages(prev => [...prev, {
+        id: `error-${Date.now()}`,
+        conversation_id: selectedConversation.id,
+        role: "assistant",
+        content: "Error: Request failed before stream initialization.",
+        query_mode: mode,
+        created_at: new Date().toISOString(),
+      }]);
+      activeChatAbortRef.current = null;
+      setPendingInput("");
       setIsLoading(false);
     }
+  };
+
+  const handleCancelChat = () => {
+    if (!isLoading || !selectedConversation) return;
+
+    activeChatAbortRef.current?.abort();
+    activeChatAbortRef.current = null;
+
+    setMessages((prev) => [
+      ...prev,
+      {
+        id: `interrupt-${Date.now()}`,
+        conversation_id: selectedConversation.id,
+        role: "assistant",
+        content: streamingContent
+          ? `${streamingContent}\n\n_Interrupted by user._`
+          : `_Interrupted by user while processing: ${pendingInput || "request"}._`,
+        query_mode: mode,
+        created_at: new Date().toISOString(),
+      },
+    ]);
+
+    setStreamingContent("");
+    setPendingInput("");
+    setIsLoading(false);
+    queryClient.invalidateQueries({
+      queryKey: ["conversation", selectedGroupId, selectedConversation.id],
+    });
   };
 
   const groups = groupsData?.groups || [];
@@ -437,13 +494,16 @@ function ConversationsPage() {
                         }
                       }}
                     />
-                    <Button 
-                      type="submit" 
-                      disabled={!input.trim() || isLoading}
+                    <Button
+                      type={isLoading ? "button" : "submit"}
+                      onClick={isLoading ? handleCancelChat : undefined}
+                      variant={isLoading ? "destructive" : "default"}
+                      disabled={isLoading ? false : !input.trim()}
                       className="h-auto px-4"
+                      title={isLoading ? "Stop generation" : "Send message"}
                     >
                       {isLoading ? (
-                        <Loader2 className="h-5 w-5 animate-spin" />
+                        <Square className="h-5 w-5" />
                       ) : (
                         <Send className="h-5 w-5" />
                       )}
