@@ -60,3 +60,16 @@ async def get_document(group_id: str, document_id: str) -> DocumentResponse:
         raise HTTPException(status_code=404, detail=str(e))
     except DocumentNotFoundError as e:
         raise HTTPException(status_code=404, detail=str(e))
+
+
+@router.delete("/{document_id}", status_code=204)
+async def delete_document(group_id: str, document_id: str) -> None:
+    """Delete a single document from a group's knowledge base."""
+    try:
+        await document_service.delete_document(group_id, document_id)
+    except GroupNotFoundError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except DocumentNotFoundError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except LightRAGNotReadyError as e:
+        raise HTTPException(status_code=503, detail=str(e))

@@ -49,7 +49,8 @@ async def get_instance(group_id: str) -> LightRAG:
             llm_model_kwargs={
                 "host": settings.ollama_base_url,
                 "options": {"num_ctx": settings.lightrag_context_window},
-                "timeout": 300,
+                "timeout": settings.ollama_request_timeout_seconds,
+                "keep_alive": settings.ollama_keep_alive,
             },
             embedding_func=EmbeddingFunc(
                 embedding_dim=settings.lightrag_embedding_dim,
@@ -58,6 +59,8 @@ async def get_instance(group_id: str) -> LightRAG:
                     ollama_embed.func,
                     embed_model=settings.ollama_embed_model,
                     host=settings.ollama_base_url,
+                    timeout=settings.ollama_embed_timeout_seconds,
+                    keep_alive=settings.ollama_keep_alive,
                 ),
             ),
         )
@@ -70,15 +73,22 @@ async def get_instance(group_id: str) -> LightRAG:
         raise LightRAGNotReadyError(f"LightRAG initialization failed: {e}") from e
 
 
-async def insert_text(group_id: str, text: str) -> None:
-    """Insert text content into a group's knowledge base.
+async def insert_text(
+    group_id: str,
+    text: str,
+    document_id: str,
+    file_path: str,
+) -> None:
+    """Insert text content into a group's knowledge base with a stable document ID.
 
     Args:
         group_id: The group identifier.
         text: Text content to insert and index.
+        document_id: Stable document identifier used for later deletions.
+        file_path: Original filename for source tracking.
     """
     rag = await get_instance(group_id)
-    await rag.ainsert(text)
+    await rag.ainsert(text, ids=document_id, file_paths=file_path)
     logger.info("Inserted %d chars into group '%s'", len(text), group_id)
 
 
@@ -135,3 +145,37 @@ async def shutdown_all() -> None:
     for group_id in list(_instances.keys()):
         await remove_instance(group_id)
     logger.info("All LightRAG instances shut down")
+
+
+async def delete_document(group_id: str, document_id: str) -> None:
+    """Delete a document from a group's LightRAG storages.
+
+    Args:
+        group_id: The group identifier.
+        document_id: Stable document identifier.
+
+    Raises:
+        LightRAGNotReadyError: If LightRAG rejects or fails deletion.
+    """
+    rag = await get_instance(group_id)
+    try:
+        result = await rag.adelete_by_doc_id(document_id, delete_llm_cache=True)
+    except Exception as exc:
+        logger.error(
+            "Failed deleting document '%s' from group '%s': %s",
+            document_id,
+            group_id,
+            exc,
+        )
+        raise LightRAGNotReadyError(f"LightRAG document deletion failed: {exc}") from exc
+
+    if result.status not in {"success", "not_found"}:
+        logger.error(
+            "Unexpected delete status for document '%s' in group '%s': %s",
+            document_id,
+            group_id,
+            result.status,
+        )
+        raise LightRAGNotReadyError(
+            f"LightRAG document deletion rejected with status '{result.status}'"
+        )

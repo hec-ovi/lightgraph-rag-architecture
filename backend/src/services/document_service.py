@@ -32,9 +32,9 @@ async def insert_document(group_id: str, content: str, filename: str) -> Documen
     """
     await _verify_group_exists(group_id)
 
-    doc_id = uuid.uuid4().hex[:12]
+    doc_id = f"doc-{uuid.uuid4().hex[:12]}"
 
-    await lightrag_service.insert_text(group_id, content)
+    await lightrag_service.insert_text(group_id, content, doc_id, filename)
 
     db = await get_connection()
     try:
@@ -125,5 +125,41 @@ async def get_document(group_id: str, document_id: str) -> DocumentResponse:
             content_length=row["content_length"],
             created_at=row["created_at"],
         )
+    finally:
+        await db.close()
+
+
+async def delete_document(group_id: str, document_id: str) -> None:
+    """Delete a document from metadata and LightRAG group storage.
+
+    Args:
+        group_id: The group identifier.
+        document_id: The document identifier.
+
+    Raises:
+        GroupNotFoundError: If the group does not exist.
+        DocumentNotFoundError: If the document does not exist.
+    """
+    await _verify_group_exists(group_id)
+
+    db = await get_connection()
+    try:
+        cursor = await db.execute(
+            "SELECT id FROM documents WHERE id = ? AND group_id = ?",
+            (document_id, group_id),
+        )
+        row = await cursor.fetchone()
+        if not row:
+            raise DocumentNotFoundError(
+                f"Document '{document_id}' not found in group '{group_id}'"
+            )
+
+        await lightrag_service.delete_document(group_id, document_id)
+
+        await db.execute(
+            "DELETE FROM documents WHERE id = ? AND group_id = ?",
+            (document_id, group_id),
+        )
+        await db.commit()
     finally:
         await db.close()

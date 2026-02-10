@@ -11,9 +11,10 @@ A fully local, Dockerized knowledge graph RAG system powered by [LightRAG](https
 - **5 Query Modes** — Naive (vector-only), local, global, hybrid, and mix (graph + vector combined)
 - **Conversation Memory** — Persistent chat sessions with history-aware RAG responses
 - **SSE Streaming** — Real-time streaming for both queries and conversations
+- **Readiness Gate** — Backend health reports model readiness, frontend blocks until required models are loaded
 - **Fully Local** — All AI inference via Ollama with ROCm GPU acceleration (AMD Strix Halo)
-- **OpenAPI Documented** — 18 endpoints auto-documented at `/docs`
-- **File Upload** — Ingest .txt, .md, .csv, .json, .xml, .html, .py, .js, .ts, .yaml, .yml, .log, and .pdf files via modular extractor registry
+- **OpenAPI Documented** — 19 endpoints auto-documented at `/docs`
+- **File Upload + Delete** — Ingest and delete per-group documents (.txt, .md, .csv, .json, .xml, .html, .py, .js, .ts, .yaml, .yml, .log, .pdf)
 
 ## Architecture
 
@@ -67,11 +68,11 @@ A fully local, Dockerized knowledge graph RAG system powered by [LightRAG](https
 |-----|-----------|-------------|
 | Health | 1 | Service health check |
 | Groups | 5 | CRUD for document groups (isolated knowledge graphs) |
-| Documents | 4 | Text insert, file upload, list, get document metadata |
+| Documents | 5 | Text insert, file upload, list, get, and delete document metadata/content |
 | Query | 2 | RAG query + SSE streaming (5 modes) |
 | Conversations | 6 | Chat sessions with memory, SSE streaming, CRUD |
 
-**Total: 18 endpoints** — See `llm.txt` for the complete reference with request/response schemas.
+**Total: 19 endpoints** — See `llm.txt` for the complete reference with request/response schemas.
 
 ## Project Structure
 
@@ -97,7 +98,15 @@ A fully local, Dockerized knowledge graph RAG system powered by [LightRAG](https
 │   └── entrypoint.sh              # Starts server, pulls gpt-oss:20b + bge-m3
 ├── data/                           # Sample test data for RAG ingestion
 │   └── samples/
-│       └── pydantic_ai_docs.txt   # Pydantic AI documentation (~10KB)
+│       ├── pydantic_ai_docs.txt   # Pydantic AI documentation (~10KB)
+│       └── confucius_code_agent_2512.10398v6.pdf
+├── tests/
+│   ├── README.md                   # End-to-end test instructions
+│   └── e2e/
+│       ├── backend_e2e.py          # Full backend E2E validator script
+│       ├── run_in_backend_container.sh
+│       └── fixtures/
+│           └── small.pdf
 ├── frontend/                       # React + Vite frontend
 │   ├── Dockerfile                  # Multi-stage nginx build
 │   ├── nginx.conf                  # Nginx configuration
@@ -141,8 +150,13 @@ docker logs -f lightrag-ollama
 
 # 4. Verify backend
 curl http://localhost:8000/health
-# {"status":"healthy","service":"lightgraph-rag-api","version":"0.1.0"}
+# {"status":"healthy","models_loaded":true,"loaded_models":["bge-m3:latest","gpt-oss:20b"], ...}
 ```
+
+### First Run Notes
+
+- **Model warmup is intentional.** The first boot downloads models and warms them into VRAM. This can take a few minutes.
+- **Large PDFs are slow to ingest.** Entity extraction is LLM-heavy and runs synchronously; multi-page PDFs can take several minutes. Consider starting with a small text file to validate the pipeline, then ingest large PDFs.
 
 ### Usage Example
 
@@ -189,7 +203,13 @@ curl -X POST http://localhost:8000/groups/GROUP_ID/conversations/CONV_ID/chat \
 | `OLLAMA_MODEL` | `gpt-oss:20b` | LLM model name |
 | `OLLAMA_EMBED_MODEL` | `bge-m3:latest` | Embedding model name |
 | `OLLAMA_CONTEXT_LENGTH` | `32768` | LLM context window (tokens) |
-| `OLLAMA_KEEP_ALIVE` | `5m` | Model VRAM retention after last request |
+| `OLLAMA_KEEP_ALIVE` | `-1` | Model VRAM retention after last request (`-1` keeps models loaded) |
+| `OLLAMA_WARMUP` | `true` | Warm models on Ollama startup to pre-load into VRAM |
+| `OLLAMA_REQUEST_TIMEOUT_SECONDS` | `900` | LLM request timeout (seconds) |
+| `OLLAMA_EMBED_TIMEOUT_SECONDS` | `300` | Embedding request timeout (seconds) |
+| `OLLAMA_HEALTH_TIMEOUT_SECONDS` | `5` | Ollama health probe timeout (seconds) |
+| `LLM_TIMEOUT` | `900` | LightRAG internal LLM worker timeout (seconds) |
+| `EMBEDDING_TIMEOUT` | `300` | LightRAG internal embedding worker timeout (seconds) |
 | `BACKEND_PORT` | `8000` | Backend API port |
 | `FRONTEND_PORT` | `5173` | Frontend nginx port |
 | `OLLAMA_BASE_URL` | `http://ollama:11434` | Ollama server URL (internal Docker network) |
@@ -206,6 +226,20 @@ curl -X POST http://localhost:8000/groups/GROUP_ID/conversations/CONV_ID/chat \
 | `global` | Knowledge graph — relationship-focused | Broad conceptual questions |
 | `hybrid` | Local + global combined | General graph-based retrieval |
 | `mix` | Knowledge graph + vector combined | **Recommended** — best overall quality |
+
+## End-to-End Backend Verification
+
+Run the complete backend verification suite from the project root:
+
+```bash
+bash tests/e2e/run_in_backend_container.sh
+```
+
+This suite validates health/readiness gating, OpenAPI contract, GPU model residency, group/document lifecycle, all query modes, SSE streams, interrupt/disconnect recovery, and cleanup flows.
+
+For host execution details and timeout tuning, see:
+
+- `tests/README.md`
 
 ## Development
 
